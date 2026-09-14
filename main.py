@@ -15,56 +15,68 @@ DESTINO = "E"
 def ler_grafo(caminho):
     nos = []
     grafo = {}
-    heuristicas = {}
+    coordenadas = {}
 
     with open(caminho, "r", encoding="utf-8") as f:
         linhas = [linha.strip() for linha in f]
 
-    for linha in linhas:
+    for linha in linhas: # ignora linhas vazias/comentarios
         if not linha or linha.startswith("#"):
             continue
 
         partes = linha.split()
 
-        if len(partes) > 2 and all(p.isalpha() for p in partes):
-            nos = partes
-            for no in nos:
-                grafo.setdefault(no, [])
+        if len(partes) != 3:
+            continue  # linha em formato inesperado, ignora
 
-        elif len(partes) == 3:
-            origem, destino, custo = partes[0], partes[1], float(partes[2])
+        primeiro, segundo, terceiro = partes
+        eh_linha_de_no = _eh_numero(segundo) and _eh_numero(terceiro)
+        # diferencia no (nome x y) de aresta (origem destino custo) vendo se o segundo e numero
+
+        if eh_linha_de_no:
+            nome = primeiro
+            x, y = float(segundo), float(terceiro)
+            nos.append(nome)
+            coordenadas[nome] = (x, y)
+            grafo.setdefault(nome, [])
+        else:
+            origem, destino, custo = primeiro, segundo, float(terceiro)
             grafo.setdefault(origem, []).append((destino, custo))
             grafo.setdefault(destino, []).append((origem, custo))  # bidirecional
 
-        elif len(partes) == 2:
-            no, valor = partes[0], float(partes[1])
-            heuristicas[no] = valor
+    return nos, grafo, coordenadas
 
-    return nos, grafo, heuristicas
+
+def _eh_numero(texto): # true se o texto pode ser convertido p/ float
+    try:
+        float(texto)
+        return True
+    except ValueError:
+        return False
 
 
 def main():
-    nos, grafo, heuristicas = ler_grafo(CAMINHO_GRAFO)
+    nos, grafo, coordenadas = ler_grafo(CAMINHO_GRAFO)
 
     print("Nós encontrados:", nos)
+    print("\nCoordenadas:")
+    for no, (x, y) in coordenadas.items():
+        print(f"  {no}: ({x}, {y})")
     print("\nLista de adjacência:")
     for no, vizinhos in grafo.items():
         print(f"  {no}: {vizinhos}")
-    print("\nHeurísticas:")
-    for no, valor in heuristicas.items():
-        print(f"  {no}: {valor}")
 
-    veio_de, custo_ate_aqui = a_star_search(grafo, heuristicas, INICIO, DESTINO)
+    veio_de, tabela_hash = a_star_search(grafo, coordenadas, INICIO, DESTINO)
     caminho = reconstruir_caminho(veio_de, INICIO, DESTINO)
 
     print(f"\nBusca A* de {INICIO} até {DESTINO}:")
     if caminho:
         print("  Caminho encontrado:", " -> ".join(caminho))
-        print("  Custo total:", custo_ate_aqui[DESTINO])
+        print("  Custo total:", tabela_hash[DESTINO])
     else:
         print("  Nenhum caminho encontrado entre os nós informados.")
 
-    custo_total = custo_ate_aqui.get(DESTINO)
+    custo_total = tabela_hash.get(DESTINO)
     salvar_resultado(CAMINHO_RESULTADO, caminho, custo_total, INICIO, DESTINO)
     gerar_graphviz(CAMINHO_DOT, grafo, caminho)
 
